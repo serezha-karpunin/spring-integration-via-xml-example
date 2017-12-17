@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:int="http://www.springframework.org/schema/integration"
+       xmlns:int-http="http://www.springframework.org/schema/integration/http"
+       xmlns:task="http://www.springframework.org/schema/task"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+    http://www.springframework.org/schema/beans/spring-beans.xsd
+    http://www.springframework.org/schema/integration
+    http://www.springframework.org/schema/integration/spring-integration.xsd
+    http://www.springframework.org/schema/integration/http
+    http://www.springframework.org/schema/integration/http/spring-integration-http.xsd http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task.xsd">
+
+    <int:channel id="sbpStockToSaveReceiveChannel"/>
+    <int:channel id="sbpStockTransactionInitChannel"/>
+    <int:publish-subscribe-channel id="sbpStockTransactionCreatedChannel" task-executor="executor" />
+    <int:channel id="sbpStockTransactionNumberReplyChannel"/>
+
+    <task:executor id="executor" pool-size="10" />
+
+    <int-http:inbound-gateway
+            request-channel="sbpStockToSaveReceiveChannel"
+            reply-channel="sbpStockTransactionNumberReplyChannel"
+            path="/saveStock"
+            supported-methods="POST"
+            request-payload-type="java.lang.Object">
+    </int-http:inbound-gateway>
+
+    <int:enricher input-channel="sbpStockToSaveReceiveChannel"
+                  request-channel="sbpStockTransactionInitChannel"
+                  output-channel="sbpStockTransactionCreatedChannel">
+        <int:property name="transactionId" expression="payload"/>
+    </int:enricher>
+
+    <int:service-activator id="createStockTxServiceActivator"
+                           ref="txService" method="createTransaction"
+                           input-channel="sbpStockTransactionInitChannel"/>
+
+
+    <int:transformer id="txNumberTransformer"
+                     input-channel="sbpStockTransactionCreatedChannel"
+                     output-channel="sbpStockTransactionNumberReplyChannel"
+                     expression="{'transaction-id': payload[transactionId]}"/>
+
+    <int:service-activator id="validateStockTxServiceActivator"
+                           ref="txService" method="validateTransaction"
+                           input-channel="sbpStockTransactionCreatedChannel"/>
+
+    <bean id="txService" class="com.example.demo.TransactionService"/>
+</beans>
