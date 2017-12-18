@@ -18,6 +18,35 @@
 
     <task:executor id="executor" pool-size="10" />
 
+
+
+    <int-http:inbound-gateway
+            request-channel="tempRequestChannel"
+            reply-channel="tempReplyChannel"
+            path="/temp"
+            supported-methods="GET"
+    >
+    </int-http:inbound-gateway>
+
+    <int:channel id="tempRequestChannel"/>
+    <int:channel id="tempTransformedChannel"/>
+    <int:channel id="tempReplyChannel"/>
+
+    <int:transformer id="tempTransformer"
+                     input-channel="tempRequestChannel"
+                     output-channel="tempTransformedChannel"
+                     expression="{'entries': new Object[]{{'product': {'sku': '12'}, 'availableQuantity': '12','location':{'id': 'uid','code': 'code'}}}}"/>
+
+    <int-http:outbound-gateway
+            request-channel="tempTransformedChannel"
+            reply-channel="tempReplyChannel"
+            http-method="POST"
+            url="http://localhost:8080/saveStock"
+            expected-response-type="java.lang.Object">
+    </int-http:outbound-gateway>
+
+
+
     <int-http:inbound-gateway
             request-channel="sbpStockToSaveReceiveChannel"
             reply-channel="sbpStockTransactionNumberReplyChannel"
